@@ -1,0 +1,254 @@
+**Case Study Questions**
+
+The following questions can be considered key business questions and metrics that the Balanced Tree team requires for their monthly reports.
+
+Each question can be answered using a single query - but as you are writing the SQL to solve each individual problem, keep in mind how you would generate all of these metrics in a single SQL script which the Balanced Tree team can run each month.
+
+**High Level Sales Analysis**
+
+What was the total quantity sold for all products?
+
+```sql
+SELECT p.product_id,
+       p.product_name,
+       SUM(s.qty) AS total_sold
+	FROM product_details AS p
+	JOIN sales AS s ON p.product_id = s.prod_id
+	GROUP BY p.product_id, p.product_name
+	ORDER BY p.product_name;
+```
+
+| product_id | product_name | total_sold |
+|------------|--------------|------------|
+| e83aa3 | Black Straight Jeans - Womens |	3786 |
+| 2a2353 | Blue Polo Shirt - Mens | 3819 |
+| e31d39 | Cream Relaxed Jeans - Womens |	3707 |
+| 9ec847 | Grey Fashion Jacket - Womens |3876 |
+| 72f5d4 | Indigo Rain Jacket - Womens | 3757 |
+| d5e9a6 | Khaki Suit Jacket - Womens | 3752 |
+| c4a632 | Navy Oversized Jeans - Womens | 3856 |
+| f084eb | Navy Solid Socks - Mens | 3792 | 
+| 2feb6b | Pink Fluro Polkadot Socks - Mens | 3770 |
+| c8d436 | Teal Button Up Shirt - Mens | 3646 |
+| b9a74d | White Striped Socks - Mens | 3655 |
+| 5d267b | White Tee Shirt - Mens | 3800 |
+
+
+What is the total generated revenue for all products before discounts?
+
+```sql
+SELECT p.product_id,
+       p.product_name,
+       SUM(s.qty*s.price) AS total_sales
+	FROM product_details AS p
+	JOIN sales AS s ON p.product_id = s.prod_id
+	GROUP BY p.product_id, p.product_name
+	ORDER BY p.product_name;
+```
+
+| product_id | product_name | total_sales |
+|------------|--------------|-------------|
+| e83aa3 | Black Straight Jeans - Womens |	121152 |
+| 2a2353 | Blue Polo Shirt - Mens | 217683 |
+| e31d39 | Cream Relaxed Jeans - Womens |	37070 |
+| 9ec847 | Grey Fashion Jacket - Womens | 209304 |
+| 72f5d4 | Indigo Rain Jacket - Womens | 71383 |
+| d5e9a6 | Khaki Suit Jacket - Womens | 86296 |
+| c4a632 | Navy Oversized Jeans - Womens | 50128 |
+| f084eb | Navy Solid Socks - Mens | 136512 |
+| 2feb6b | Pink Fluro Polkadot Socks - Mens |	109330 |
+| c8d436 | Teal Button Up Shirt - Mens |	36460 |
+| b9a74d | White Striped Socks - Mens |	62135 |
+| 5d267b | White Tee Shirt - Mens |	152000 |
+
+What was the total discount amount for all products?
+
+```sql
+SELECT p.product_id,
+       p.product_name,
+       SUM(s.discount) AS total_discount
+	FROM product_details AS p
+	JOIN sales AS s ON p.product_id = s.prod_id
+	GROUP BY p.product_id, p.product_name
+	ORDER BY p.product_name; 
+```
+
+| product_id | product_name | total_discount |
+|------------|--------------|----------------|
+| e83aa3 | Black Straight Jeans - Womens |	15257 |
+| 2a2353 | Blue Polo Shirt - Mens |	15553 |
+| e31d39 | Cream Relaxed Jeans - Womens |	15065 |
+| 9ec847 | Grey Fashion Jacket - Womens |	15500 |
+| 72f5d4 | Indigo Rain Jacket - Womens |	15283 |
+| d5e9a6 | Khaki Suit Jacket - Womens |	14669 |
+| c4a632 | Navy Oversized Jeans - Womens |	15418 |
+| f084eb | Navy Solid Socks - Mens |	15646 |
+| 2feb6b | Pink Fluro Polkadot Socks - Mens |	14946 |
+| c8d436 | Teal Button Up Shirt - Mens |	15003 |
+| b9a74d | White Striped Socks - Mens |	14873 |
+| 5d267b | White Tee Shirt - Mens |	15487 |
+
+**Transaction Analysis**
+
+How many unique transactions were there?
+
+```sql
+SELECT COUNT(DISTINCT(txn_id)) AS total_txn 
+      FROM sales;
+```
+| total_txn |
+|-----------|
+| 2500 |
+
+What is the average unique products purchased in each transaction?
+
+```sql
+WITH total_prod AS (SELECT COUNT(DISTINCT(prod_id)) AS total_prod,
+                           txn_id
+                       FROM sales
+	                   GROUP BY txn_id)
+	SELECT ROUND(AVG(total_prod)) AS AVG_prod
+	    FROM total_prod;
+```
+| avg_prod |
+|----------|
+|      6 |
+
+What are the 25th, 50th and 75th percentile values for the revenue per transaction?
+
+```sql
+WITH total_revenue AS (SELECT txn_id,
+                              SUM(qty*price) as total_revenue
+	                        FROM sales
+	                        GROUP BY txn_id)
+							
+		SELECT PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY total_revenue) AS "25th Percentile",
+               PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY total_revenue) AS "50th Percentile",
+               PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY total_revenue) AS "75th Percentile"
+			FROM total_revenue;
+```
+
+| 25th Percentile | 50th Percentile | 75th Percentile |
+|-----------------|-----------------|-----------------|
+| 375.75 |	509.5 |	647 |
+
+What is the average discount value per transaction?
+
+```sql
+WITH total_discount AS (SELECT txn_id,
+                               SUM(discount) as total_discount
+                           FROM sales
+	                       GROUP BY txn_id)
+		SELECT ROUND(AVG(total_discount)) as Avg_discount
+		      FROM total_discount;
+```
+		       
+| avg_discount |
+|--------------|
+|    73  |
+
+What is the percentage split of all transactions for members vs non-members?
+
+```sql
+SELECT CASE WHEN member = 't' THEN 'Member'
+          ELSE 'Non-Member'
+          END AS Members, 
+       COUNT(DISTINCT txn_id) AS total_txn,
+       ROUND(100.00 * COUNT(DISTINCT txn_id) / SUM(COUNT(DISTINCT txn_id)) OVER (), 2) AS txn_percent
+   FROM sales
+GROUP BY Members;
+```
+
+| members | total_txn | txn_percent |
+|---------|-----------|-------------|
+| Member |	1505 |	60.20 |
+| Non-Member |	995 |	39.80 |
+
+What is the average revenue for member transactions and non-member transactions?
+
+```sql
+SELECT CASE WHEN member = 't' THEN 'Member'
+                          ELSE 'Non-Member'
+                          END AS Members, 
+                ROUND(SUM(qty * price) / COUNT(DISTINCT txn_id), 2) AS avg_revenue_per_txn
+       FROM sales
+       GROUP BY Members;
+```
+
+| members |  avg_revenue_per_txn |
+|---------|----------------------|
+| Member |	516.00 |
+| Non-Member |	515.00 |
+	  
+**Product Analysis**
+
+What are the top 3 products by total revenue before discount?
+
+```sql
+SELECT s.prod_id,
+       p.product_name,
+	   SUM(s.qty*s.price) AS total_sales
+	 FROM sales AS s
+	 JOIN product_details AS p ON p.product_id = s.prod_id
+	 GROUP BY s.prod_id, p.product_name
+	 ORDER BY p.product_name DESC
+	 LIMIT 3; 
+```
+
+| prod_id | product_name | total_sales |
+|---------|--------------|-------------|
+| 5d267b | White Tee Shirt - Mens |	152000 |
+| b9a74d | White Striped Socks - Mens |	62135 |
+| c8d436 | Teal Button Up Shirt - Mens |	36460 |
+
+What is the total quantity, revenue and discount for each segment?
+
+```sql
+SELECT p.segment_id,
+       SUM(s.qty) AS total_quantity,
+	   SUM(s.qty*s.price) AS total_revenue,
+	   SUM(s.discount) as total_discount
+	  FROM sales AS s
+	  JOIN product_details AS p ON s.prod_id = p.product_id
+    GROUP BY p.segment_id;
+```
+
+| segment_id | total_quantity | total_revenue | total_discount |
+|------------|----------------|---------------|----------------|
+| 3 |	11349 |	208350 |	45740 |
+| 5 |	11265 |	406143 |	46043 |
+| 4 |	11385 |	366983 |	45452 |
+| 6 |	11217 |	307977 |	45465 |
+
+What is the top selling product for each segment?
+
+```sql
+WITH total_revenue AS (SELECT p.segment_id,
+                              p.product_id,
+                              p.product_name,
+                              SUM(s.qty * s.price) AS total_revenue
+                        FROM sales AS s
+                        JOIN product_details AS p ON s.prod_id = p.product_id
+                        GROUP BY p.segment_id, p.product_id, p.product_name),
+					
+      ranked_products AS (SELECT segment_id,
+                                 product_id,
+                                 product_name, 
+                                 total_revenue,
+                                 DENSE_RANK() OVER (PARTITION BY segment_id ORDER BY total_revenue DESC) AS rank
+                              FROM total_revenue)
+  SELECT segment_id,
+         product_id,
+         product_name,
+         total_revenue
+     FROM ranked_products
+     WHERE rank = 1
+     ORDER BY segment_id, rank;
+```
+
+| segment_id | product_id | product_name | total_revenue |
+|------------|------------|--------------|---------------|
+| 3	| e83aa3 | Black Straight Jeans - Womens |	121152 |
+| 4	| 9ec847 | Grey Fashion Jacket - Womens |	209304 |
+| 5	| 2a2353 | Blue Polo Shirt - Mens |	217683 |
+| 6	| f084eb | Navy Solid Socks - Mens |	136512 |
