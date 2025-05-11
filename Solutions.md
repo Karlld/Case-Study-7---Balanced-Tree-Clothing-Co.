@@ -252,3 +252,95 @@ WITH total_revenue AS (SELECT p.segment_id,
 | 4	| 9ec847 | Grey Fashion Jacket - Womens |	209304 |
 | 5	| 2a2353 | Blue Polo Shirt - Mens |	217683 |
 | 6	| f084eb | Navy Solid Socks - Mens |	136512 |
+
+What is the total quantity, revenue and discount for each category?
+
+```sql
+SELECT p.category_id,
+       SUM(s.qty) AS total_quantity,
+	   SUM(s.qty*s.price) AS total_revenue,
+	   SUM(s.discount) as total_discount
+	  FROM sales AS s
+	  JOIN product_details AS p ON s.prod_id = p.product_id
+    GROUP BY p.category_id
+	ORDER BY category_id;
+```
+| category_id | total_quantity | total_revenue | total_discount |
+|-------------|----------------|---------------|----------------|
+| 1 |	22734 |	575333 |	91192 |
+| 2 |	22482 |	714120 |	91508 |
+
+What is the top selling product for each category?
+
+```sql
+With product_rank AS (SELECT p.category_id,
+                             p.product_id,
+					         p.product_name,
+                             SUM(s.qty) AS total_quantity,
+	                         SUM(s.qty*s.price) AS total_revenue,
+	                         SUM(s.discount) as total_discount,
+	                         ROW_NUMBER()OVER(PARTITION BY p.category_ID ORDER BY SUM(s.qty*s.price) DESC) AS rank
+	                     FROM sales AS s
+	                     JOIN product_details AS p ON s.prod_id = p.product_id
+                         GROUP BY p.product_id, p.category_id, p.product_name)
+	    SELECT category_id,
+		       product_name,
+			   total_revenue
+		   FROM product_rank
+		   WHERE rank = 1
+		   GROUP BY product_name, category_id, total_revenue
+		   ORDER BY category_id;
+```
+
+| category_id | product_name | total_revenue |
+|-------------|--------------|---------------|
+| 1 |	Grey Fashion Jacket - Womens |	209304 |
+| 2 |	Blue Polo Shirt - Mens |	217683 |
+		   
+What is the percentage split of revenue by product for each segment?
+
+```sql
+SELECT p.segment_id,
+       s.prod_id,
+       p.product_name,
+       ROUND(100.00 * SUM(s.qty*s.price)/SUM(SUM(s.qty*s.price)) OVER (PARTITION BY p.segment_id), 2) AS product_percent
+   FROM sales AS s
+   JOIN product_details AS p ON s.prod_id = p.product_id 
+GROUP BY p.segment_id, s.prod_id, p.product_name
+ORDER BY segment_id;
+```
+
+| segment_id | prod_id | product_name | product_percent |
+|------------|---------|--------------|-----------------|
+| 3	| e83aa3 |	Black Straight Jeans - Womens |	58.15 |
+| 3	| c4a632 |	Navy Oversized Jeans - Womens |	24.06 |
+| 3	| e31d39 | 	Cream Relaxed Jeans - Womens |	17.79 |
+| 4	| 9ec847 |	Grey Fashion Jacket - Womens |	57.03 |
+| 4	| 72f5d4 |	Indigo Rain Jacket - Womens |	19.45 |
+| 4	| d5e9a6 |	Khaki Suit Jacket - Womens |	23.51 |
+| 5	| c8d436 |	Teal Button Up Shirt - Mens |	8.98 |
+| 5	| 5d267b |	White Tee Shirt - Mens |	37.43 |
+| 5	| 2a2353 |	Blue Polo Shirt - Mens | 53.60 |
+| 6	| 2feb6b |	Pink Fluro Polkadot Socks - Mens |	35.50 |
+| 6	| f084eb |	Navy Solid Socks - Mens |	44.33 |
+| 6	| b9a74d |	White Striped Socks - Mens |	20.18 | 
+
+What is the percentage split of revenue by segment for each category?
+
+```sql
+SELECT p.category_id,
+       p.segment_id,
+       ROUND(100.00 * SUM(s.qty*s.price)/SUM(SUM(s.qty*s.price)) OVER (PARTITION BY p.category_id), 2) AS segment_percent
+   FROM sales AS s
+   JOIN product_details AS p ON s.prod_id = p.product_id 
+GROUP BY p.category_id, p.segment_id
+ORDER BY category_id;
+```
+
+| category_id |	segment_id |	segment_percent |
+|-------------|------------|--------------------|
+| 1 |	3 |	36.21 |
+| 1 |	4 |	63.79 |
+| 2 |	6 |	43.13 |
+| 2 |	5 |	56.87 |
+
