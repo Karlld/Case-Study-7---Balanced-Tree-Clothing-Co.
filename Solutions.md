@@ -344,3 +344,80 @@ ORDER BY category_id;
 | 2 |	6 |	43.13 |
 | 2 |	5 |	56.87 |
 
+What is the percentage split of total revenue by category?
+
+```sql
+SELECT p.category_id,
+       ROUND(100.00 * SUM(s.qty*s.price)/SUM(SUM(s.qty*s.price)) OVER (), 2) AS category_percent
+   FROM sales AS s
+   JOIN product_details AS p ON s.prod_id = p.product_id 
+GROUP BY p.category_id
+ORDER BY category_id;
+```
+
+| category_id | category_percent |
+|-------------|------------------|
+| 1 |	44.62 |
+| 2 |	55.38 |
+
+What is the total transaction “penetration” for each product? (hint: penetration = number of transactions where at least 1 quantity of a product was purchased divided by total number of transactions)
+
+```sql
+WITH product_in_txn AS ( SELECT s.txn_id,
+                                s.prod_id,
+                                p.product_name,
+                                1 AS is_product_in_txn
+                           FROM sales AS s
+	                   JOIN product_details AS p ON s.prod_id = p.product_id
+                           GROUP BY s.txn_id, s.prod_id, p.product_name)
+SELECT prod_id,
+       product_name,
+       ROUND(100.00 * COUNT(DISTINCT txn_id) / (SELECT COUNT(DISTINCT txn_id) FROM sales),2) AS txn_penetration_percentage
+   FROM product_in_txn
+   GROUP BY prod_id, product_name
+   ORDER BY txn_penetration_percentage DESC;
+```
+
+| prod_id | product_name  | txn_penetration_percentage |
+|---------|---------------|----------------------------|
+| f084eb	| Navy Solid Socks - Mens |	51.24 |
+| 9ec847	| Grey Fashion Jacket - Womens |	51.00 |
+| c4a632	| Navy Oversized Jeans - Womens |	50.96 |
+| 2a2353	| Blue Polo Shirt - Mens | 	50.72 |
+| 5d267b	| White Tee Shirt - Mens | 	50.72 |
+| 2feb6b	| Pink Fluro Polkadot Socks - Mens |	50.32 |
+| 72f5d4	| Indigo Rain Jacket - Womens |	50.00 |
+| d5e9a6	| Khaki Suit Jacket - Womens |	49.88 |
+| e83aa3	| Black Straight Jeans - Womens |	49.84 |
+| e31d39	| Cream Relaxed Jeans - Womens |	49.72 |
+| b9a74d	| White Striped Socks - Mens |	49.72 |
+| c8d436	| Teal Button Up Shirt - Mens |	49.68 |
+
+What is the most common combination of at least 1 quantity of any 3 products in a 1 single transaction?
+
+```sql
+WITH product_combinations AS (SELECT s1.prod_id AS prod1,
+                                     s2.prod_id AS prod2,
+                                     s3.prod_id AS prod3,
+                                     s1.txn_id
+                                  FROM sales AS s1
+                                  JOIN sales s2 ON s1.txn_id = s2.txn_id 
+                                       AND s2.prod_id > s1.prod_id
+                                  JOIN sales s3 ON s1.txn_id = s3.txn_id 
+                                       AND s3.prod_id > s2.prod_id)
+          SELECT prod1, 
+                 prod2, 
+                 prod3,
+                COUNT(*) AS combination_count
+            FROM product_combinations
+            GROUP BY prod1, prod2, prod3
+            ORDER BY combination_count DESC
+            LIMIT 1;
+```
+
+| prod1 | prod2 | prod3 | combination_count |
+|-------|-------|-------|-------------------|
+| 5d267b |	9ec847 |	c8d436 |	352 |
+
+
+
